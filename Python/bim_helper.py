@@ -35,6 +35,15 @@ def greens(r_obs, r_src, k):
 # 4. Repeat 2 and compare fields with measured data. If difference < 5% 
 #    of scattered field, terminate successfully. Otherwise repeat until soln converges
 
+# Questions
+# Does get_incident_field alter coarsemodel?
+# What's the diff btn coarse and finemodels
+# why have finemodel, coarsemodel, and parameters?
+# What portion is the Born approximation? 
+#   Ez ^(r) is the solution of the forward problem,
+#   the forward scattering solution of order r, when r = 0. It is 
+#   the incident field in the object (the Born approximation).
+
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
 def bim(params: Params):
@@ -43,28 +52,41 @@ def bim(params: Params):
     I = np.array(0,1,params.I)
     J = np.array(0,1,params.J)
 
+    # Define pulse functions: the same pulse functions are used in both the 
+    # forward and inverse procedures,
+
     N = I * J # Define N
     # Define M (# of sampled measurements - 1 freq * # of RX)
+    #   the number of the independent measurement data
+    #   the product of the number of receivers and the number of incident waves or transmitters. 
 
     for i in I: 
         for j in J:
+
+            
+            #rho_i is the coordinate of the center of patch i.
 
             # Get the coordinate of this point
             obs_coord = [0,0,0]
             src_coord = [0,0,0]
             gs = greens(obs_coord, src_coord, params.k)
 
-            # Balculate the A matrix using Greens
-            Aij = []
+            # Calculate the K matrix using Greens
+            Kji = []
+            # Kji = k^2 * Ez_r(r_i) * double_integral(greens(pj - p') * dx' * dy' )
 
 
             # Define basis functions for permittivity profile - this is what we will solve for
             # pulse: d = sum(a*delta) 
 
-            # Calculate the local scattered electric field
-            # Es_ij = 1j * params.k * params.eta * Aij - 1j * params.eta / params.k * Bij
+            # Calculate LHS (Total electric field)
+            # Column vector
+            b = []
 
-            # Calculate RHS
+            # Solve matrix equation for permittivity profile
+            # Column vector
+            # a = A \ B
+
 
 
             # Perform regularization
