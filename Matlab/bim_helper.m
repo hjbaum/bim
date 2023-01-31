@@ -1,5 +1,6 @@
 clear all; close all; clc;
 
+
 global K_global b_global M N
 
 % Define constants
@@ -9,15 +10,18 @@ freq = 1e6; % 1 GHz
 k = 2*pi*freq/3e8; % Check definition
 
 % TODO: complete
+
+
 M = 0;
-N = 0
+N = I * J; 
+
 
 % Initialize the global matrices
 K_global = zeros(num_unknowns);
 b_global = zeros(num_unknowns,1);
 
 % loop over all i and k elements
-for i = 1:num_elements
+for = 1:num_elements
    
     % Initialize matrices
     Kji = zeros(3);
@@ -39,61 +43,25 @@ for i = 1:num_elements
         B_sum = 0;
         y_sum = 0; % RHS
 
-        for p = 1:3
 
-            % Calculate xp
-            x_p = zeta_i(p,:) * ki_node_coord;
 
-            % Calculate lambda p 
-            lambda_p =  1/(2*Area_i)*[[zeta_i(p,3)*T1_i - zeta_i(p,2)*T2_i]; ...
-                        [zeta_i(p,1)*T2_i - zeta_i(p,3)*T0_i]; ...
-                        [zeta_i(p,2)*T0_i - zeta_i(p,1)*T1_i]];
-    
-
-            % Calculate local incident field vector (right-hand side)
-            z = 0;
-            x_hat = x_p/norm(x_p);
-            e_inc = x_hat * exp(-1i*k*z); % = x_hat
-            e_vec = [e_inc; e_inc; e_inc];
-            y_sum = y_sum + dot(lambda_p,e_vec)' * 1/6;
-
-            for q = 1:3
-                % Calculate yq
-                y_q = zeta_j(q,:) * kj_node_coord;
-
-                % Calculate R
-                Rpq = sqrt((x_p(1)-y_q(1))^2 + (x_p(2)-y_q(2))^2 + (x_p(3)-y_q(3))^2); % Scalar
-
-                % Calculate Fpq
-                Fpq = exp(-1i * k * Rpq) / (4*pi * Rpq); % Complex number
-    
-                % Calculate Apq
-                A_val = Fpq * lambda_p' * lambda_q;
-                A_sum = A_sum + A_val;
-
-                % Calculate Bqp
-                B_sum = B_sum + Fpq * ones(3,3);
-            
-            end %q            
-        end %p
-
-        % Calculate local K matrix
+        % Calculate local A matrix
         Kij = []
 
         % Calculate the total electric field (b)
         b = []
+
+        % Solve for the permittivity coefficients
+        a = K \ b_global;
         
         % Add any values that contribute to the unknowns to the globals
-        map_to_global(i,j,Kij,b);
+        %map_to_global(i,j,Kij,b);
 
     end %j
 end %i
-   
-% Solve for the permittivity coefficients
-a = K \ b_global;
 
 
-% Plot recovvered permittivity vs original permittivity
+% Plot recovered permittivity vs original permittivity
 
 
 % Function for mapping from local matrices to global matrix

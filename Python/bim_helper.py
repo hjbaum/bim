@@ -5,16 +5,29 @@ class Params:
     # Constants
     eps_naught = 8.854187817E-12 #const
 
-    def __init__(self, freq, I, J, h, M):
+    def __init__(self, freq, dx, dy, I, J, L, M, eps_rb, eps_min, eps_max, sig_rb, sig_min, sig_max):
         self.freq = freq
         self.omega = 2 * np.pi * freq
         self.k = self.omega/3e8
+        self.dx = dx
+        self.dy = dy
         self.I = I # number of points along x axis
         self.J = J # number of points along y axis
-        self.h = h # space between grid points
-        self.M = M
+        self.N = I*J # number of pixels
+        self.M = M # number of independent measurements
+        self.L = L # number of sources
 
-# Calculate Green's function
+        self.eps_rb = eps_rb
+        self.eps_min = eps_min
+        self.eps_max = eps_max
+
+        self.sig_rb = sig_rb
+        self.sig_min = sig_min
+        self.sig_max = sig_max
+
+        self.misf = 5 # Number of iterations for bim sets; Can be initialized dynamically as well
+
+# Calculate Green's function (if not given)
 # r_obj, r_src: coordinate array (x,y,z) for observation and source points
 def greens(r_obs, r_src, k):
     # Scalar distance value
@@ -22,6 +35,19 @@ def greens(r_obs, r_src, k):
     gs = np.exp(-1j * k * R) / (4* np.pi * R)
     return gs
 
+def greens_d():
+    # TODO: Check what this is
+    stub = 1
+
+def solve_forward(params: Params):
+    # Solve the forward problem
+    stub = 1
+
+def solve_inverse(params: Params):
+    # Etc.
+    stub = 1
+
+global K, b
 
 # BIM Algorithm:
 # 1. Solve linear inverse problem using Born
@@ -46,34 +72,39 @@ def greens(r_obs, r_src, k):
 
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
-def bim(params: Params):
+def bim(ei, es, gs, params: Params):
 
     # Loop over I and J
     I = np.array(0,1,params.I)
     J = np.array(0,1,params.J)
+    L = np.array(0,1,params.L)
+    N = np.array(0,1,params.N)
+    M = np.array(0,1,params.M)
 
     # Define pulse functions: the same pulse functions are used in both the 
     # forward and inverse procedures,
 
-    N = I * J # Define N
-    # Define M (# of sampled measurements - 1 freq * # of RX)
-    #   the number of the independent measurement data
-    #   the product of the number of receivers and the number of incident waves or transmitters. 
 
-    for i in I: 
-        for j in J:
+    # Calculate initial matrix. Can just fill with 
 
-            
-            #rho_i is the coordinate of the center of patch i.
 
-            # Get the coordinate of this point
-            obs_coord = [0,0,0]
-            src_coord = [0,0,0]
+    
+    for num_iter in np.array(0,1,params.misf):
+
+
+ 
+
             gs = greens(obs_coord, src_coord, params.k)
 
-            # Calculate the K matrix using Greens
-            Kji = []
-            # Kji = k^2 * Ez_r(r_i) * double_integral(greens(pj - p') * dx' * dy' )
+
+            # Calculate forward solution
+            for l in L:
+                solve_forward(params)
+
+            # Calculate the K (aka A) matrix using Greens
+            # Pseudocode: 
+            #   K = [ Re{gs.*es} ...                  |  Im{gs.*es}                      ]
+            #       [ Im{gs.*es} / (omega*eps0*eps_rb)| -Re{gs.*es} / (omega*eps0*eps_rb)]
 
 
             # Define basis functions for permittivity profile - this is what we will solve for
@@ -81,7 +112,7 @@ def bim(params: Params):
 
             # Calculate LHS (Total electric field)
             # Column vector
-            b = []
+            # b = [b(index)+ current]
 
             # Solve matrix equation for permittivity profile
             # Column vector
