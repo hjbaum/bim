@@ -1,4 +1,7 @@
 import numpy as np
+import scipy as sci
+
+global K, b
 
 class Params:
 
@@ -9,10 +12,12 @@ class Params:
         self.freq = freq
         self.omega = 2 * np.pi * freq
         self.k = self.omega/3e8
-        self.dx = dx
-        self.dy = dy
+
+        self.dx = dx # distance between points along x axis
+        self.dy = dy # distance between points along y axis
         self.I = I # number of points along x axis
         self.J = J # number of points along y axis
+
         self.N = I*J # number of pixels
         self.M = M # number of independent measurements
         self.L = L # number of sources
@@ -35,19 +40,48 @@ def greens(r_obs, r_src, k):
     gs = np.exp(-1j * k * R) / (4* np.pi * R)
     return gs
 
-def greens_d():
-    # TODO: Check what this is
-    stub = 1
+# Discretized version of the dyadic Green function
+def greens_disc(r_m, r_n, dx, dy, k):
+    an = np.sqrt(dx*dy/np.pi)
+    J1 = sci.jv(1,k*an) # first-order bessel function
+    
+    R = np.sqrt((r_m[0]-r_n[0])^2 + (r_m[1]-r_n[1])^2) # distance vector
 
-def solve_forward(params: Params):
+    H0_2 = sci.hankel2(0, k * R) # 0th-order, 2nd degree hankel function
+    
+    green_d = -1j/2 * np.pi * k * an * J1 * H0_2
+
+    return green_d
+
+# This is the Born approximation of the first order, 
+# as it solves the integral equations assuming the incident
+# field is an approximation to the total electric field
+def estimate_initial_contrast(I, J, L, M, dx, dy, k):
+    Xn = np.array([])
+    n = 0
+
+    for i in range(0,I):
+        for j in range(0,J):
+            gmn = greens_disc(dx, dy, k)
+            Ei = solve_forward()
+            Es = solve_inverse(gmn, Xn, Ei)
+
+            # May need to reconfigure this since Es depends on Xn
+            Xn[n] = sum(sum(gmn * Ei * Es, 1, L), 1, M)
+            n = n + 1
+
+    return Xn
+
+
+def solve_forward():
     # Solve the forward problem
-    stub = 1
+    Ei = 1
+    return Ei
 
-def solve_inverse(params: Params):
-    # Etc.
-    stub = 1
+def solve_inverse(gmn, Xn, En, N):
+    # Solves the inverse scattering problem
+    Es = sum(gmn*Xn*En, 1, N)
 
-global K, b
 
 # BIM Algorithm:
 # 1. Solve linear inverse problem using Born
@@ -75,53 +109,42 @@ global K, b
 def bim(ei, es, gs, params: Params):
 
     # Loop over I and J
-    I = np.array(0,1,params.I)
+    I = np.array(0,1,params.I) # use inrange
     J = np.array(0,1,params.J)
     L = np.array(0,1,params.L)
     N = np.array(0,1,params.N)
     M = np.array(0,1,params.M)
+    k = params.k
 
-    # Define pulse functions: the same pulse functions are used in both the 
-    # forward and inverse procedures,
-
-
-    # Calculate initial matrix. Can just fill with 
-
+    # Determine contrast function
+    estimate_initial_contrast(I, J, L, M, dx, dy, k)
 
     
-    for num_iter in np.array(0,1,params.misf):
+    for num_iter in range(1,params.misf):
+        for l in range(1,L):
+            for m in range(1,M):
+                for n in range(1,N):
+                    # Calculate forward solution
+                    En_tot = 1
+
+                    # Calculate inverse solution
+                    # _r denotes relative value at point r
+                    Xn = eps_r / eps_rb - 1 - 1j * (sig_r - sigma_b) / (omega * eps_b)
+                    Em_s = sum(greens_disc(dx, dy, k) * Xn * En_tot, 1, N)
 
 
- 
+                    # Calculate LHS (Total electric field)
+                    # Column vector
+                    # b = [b(index)+ current]
 
-            gs = greens(obs_coord, src_coord, params.k)
-
-
-            # Calculate forward solution
-            for l in L:
-                solve_forward(params)
-
-            # Calculate the K (aka A) matrix using Greens
-            # Pseudocode: 
-            #   K = [ Re{gs.*es} ...                  |  Im{gs.*es}                      ]
-            #       [ Im{gs.*es} / (omega*eps0*eps_rb)| -Re{gs.*es} / (omega*eps0*eps_rb)]
-
-
-            # Define basis functions for permittivity profile - this is what we will solve for
-            # pulse: d = sum(a*delta) 
-
-            # Calculate LHS (Total electric field)
-            # Column vector
-            # b = [b(index)+ current]
-
-            # Solve matrix equation for permittivity profile
-            # Column vector
-            # a = A \ B
+                    # Solve matrix equation for permittivity profile
+                    # Column vector
+                    # a = A \ B
 
 
 
-            # Perform regularization
-            H = np.matlib.identity(N)
+                    # Perform regularization
+                    H = np.matlib.identity(N)
 
-            # Define arbitrary regularization param
-            gamma = 1E-12 # Adjust if needed
+                    # Define arbitrary regularization param
+                    gamma = 1E-12 # Adjust if needed
