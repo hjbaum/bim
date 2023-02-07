@@ -37,7 +37,7 @@ class Params:
 def greens(r_obs, r_src, k):
     # Scalar distance value
     R = np.sqrt((r_obs(1)-r_src(1))^2 + (r_obs(2)-r_src(2))^2 + (r_obs(3)-r_src(3))^2)
-    gs = np.exp(-1j * k * R) / (4* np.pi * R)
+    gs = 1j/4 * sci.hankel1(0,k * R)
     return gs
 
 # Discretized version of the dyadic Green function
@@ -64,7 +64,9 @@ def estimate_initial_contrast(I, J, L, M, dx, dy, k):
         for j in range(0,J):
             gmn = greens_disc(dx, dy, k)
             Ei = solve_forward()
-            Es = solve_inverse(gmn, Xn, Ei)
+
+            # How should I estimate Xn to solve Xn
+            Es = solve_inverse(gmn, 1, Ei)
 
             # May need to reconfigure this since Es depends on Xn
             Xn[n] = sum(sum(gmn * Ei * Es, 1, L), 1, M)
@@ -74,7 +76,8 @@ def estimate_initial_contrast(I, J, L, M, dx, dy, k):
 
 
 def solve_forward():
-    # Solve the forward problem
+    # Solve the forward problem (fdtd2d)
+    # Either calculate or grab from simulation 
     Ei = 1
     return Ei
 
@@ -82,10 +85,14 @@ def solve_inverse(gmn, Xn, En, N):
     # Solves the inverse scattering problem
     Es = sum(gmn*Xn*En, 1, N)
 
+def get_coord(pixel, )
+
 
 # BIM Algorithm:
 # 1. Solve linear inverse problem using Born
     # Calculate Green's function
+
+    # Need to calculate coordinate for pixel
 
 # 2. Solve scattering problem at object and observation points
 
@@ -96,13 +103,6 @@ def solve_inverse(gmn, Xn, En, N):
 #    of scattered field, terminate successfully. Otherwise repeat until soln converges
 
 # Questions
-# Does get_incident_field alter coarsemodel?
-# What's the diff btn coarse and finemodels
-# why have finemodel, coarsemodel, and parameters?
-# What portion is the Born approximation? 
-#   Ez ^(r) is the solution of the forward problem,
-#   the forward scattering solution of order r, when r = 0. It is 
-#   the incident field in the object (the Born approximation).
 
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
@@ -117,34 +117,81 @@ def bim(ei, es, gs, params: Params):
     k = params.k
 
     # Determine contrast function
+    # Is this the same as first-order born approximation?
     estimate_initial_contrast(I, J, L, M, dx, dy, k)
 
+    K = np.matrix([[0 for _ in range(N)]]*M) # Initialize the MxN matrix
     
     for num_iter in range(1,params.misf):
-        for l in range(1,L):
-            for m in range(1,M):
-                for n in range(1,N):
-                    # Calculate forward solution
-                    En_tot = 1
+        for l in range(1,L): # Sources
 
-                    # Calculate inverse solution
-                    # _r denotes relative value at point r
-                    Xn = eps_r / eps_rb - 1 - 1j * (sig_r - sigma_b) / (omega * eps_b)
-                    Em_s = sum(greens_disc(dx, dy, k) * Xn * En_tot, 1, N)
+            # Question: is rho' the "source point", as in location of the excited transmitter?
+            # Thinking back, no it's not, I'm just misreading the notation
+            # i -> N
+            # j -> M
+            # p' -> currently "fixed" coordinate
 
 
-                    # Calculate LHS (Total electric field)
-                    # Column vector
-                    # b = [b(index)+ current]
+            for m in range(1,M): # Samples
 
-                    # Solve matrix equation for permittivity profile
-                    # Column vector
-                    # a = A \ B
+                K_sum = 0
+
+                N = 0
+
+                # This loop goes over each element in N = I * J pixels
+                for i in range(1,I): # X axis
+                    
+                    for j in range(1,J): # Y axis
+
+                        # Find coordinates of pixel
+
+                        # Calculate forward solution for this pixel (I,J)
+                        Ez_r = solve_forward()
+
+
+                        #Ez = Ei(x,y) + surface integral(greens(p-p') * k^2 * de_r * Ez(x',y') * dx' * dy')
+
+                        # Calculate inverse solution
+                        # _r denotes relative value at point r
+                        Xn = eps_r / eps_rb - 1 - 1j * (sig_r - sigma_b) / (omega * eps_b)
+                        Em_s = sum(greens_disc(dx, dy, k) * Xn * En_tot, 1, N)
+
+
+                         
+                        K_sum = greens() + K_sum
 
 
 
-                    # Perform regularization
-                    H = np.matlib.identity(N)
+                K[m,N] = 
 
-                    # Define arbitrary regularization param
-                    gamma = 1E-12 # Adjust if needed
+
+                # ------------------------------------
+                # Calculate LHS (Total electric field)
+                # ------------------------------------
+                # b = [b(index)+ current]
+                b = []
+
+                # ____________________________
+                #
+                # STEP 2: Solve matrix eq for permittivity coefficients
+                # ____________________________
+
+    
+                # ----------------------
+                # Perform regularization
+                # ----------------------
+                H = np.matrix(np.matlib.identity(N))
+                H_t = np.transpose(H)
+                K_t = np.transpose(K)   
+
+                # Define arbitrary regularization param
+                gamma = 1E-12 # Should be btn 1e-10 to 1e-15
+
+                # Regularization matrix
+                R = K_t.dot(K) + gamma * H_t.dot(H)
+
+                # ------------------------------
+                # Solve for permittivity profile
+                # ------------------------------
+                a = R^-1 * K_t * b
+
