@@ -1,7 +1,9 @@
 import numpy as np
 import scipy as sci
 
-global K, b
+global K, b, a
+
+global p; Xn
 
 class Params:
 
@@ -34,164 +36,199 @@ class Params:
 
 # Calculate Green's function (if not given)
 # r_obj, r_src: coordinate array (x,y,z) for observation and source points
-def greens(r_obs, r_src, k):
+def greens(r_obs, r_src):
     # Scalar distance value
     R = np.sqrt((r_obs(1)-r_src(1))^2 + (r_obs(2)-r_src(2))^2 + (r_obs(3)-r_src(3))^2)
-    gs = 1j/4 * sci.hankel1(0,k * R)
+    gs = 1j/4 * sci.hankel1(0,p.k * R)
     return gs
 
 # Discretized version of the dyadic Green function
-def greens_disc(r_m, r_n, dx, dy, k):
-    an = np.sqrt(dx*dy/np.pi)
-    J1 = sci.jv(1,k*an) # first-order bessel function
-    
+def greens_disc(r_m, r_n):
+    an = np.sqrt(p.dx*p.dy/np.pi)
+    J1 = sci.jv(1,p.k*an) # first-order bessel function
     R = np.sqrt((r_m[0]-r_n[0])^2 + (r_m[1]-r_n[1])^2) # distance vector
-
-    H0_2 = sci.hankel2(0, k * R) # 0th-order, 2nd degree hankel function
-    
-    green_d = -1j/2 * np.pi * k * an * J1 * H0_2
-
+    H0_2 = sci.hankel2(0, p.k * R) # 0th-order, 2nd degree hankel function
+    green_d = -1j/2 * np.pi * p.k * an * J1 * H0_2
     return green_d
+
+
+def get_field_data(source_num, element):
+    # Read data point from csv using the source # and coordinate point
+    Ei = 1
+    return Ei
+
+def get_coord(N): 
+    row = N / p.J  
+    col = N % p.J  
+    return np.array[row,col]
+
+def get_antenna_coord(id): 
+    # These should be pre-mapped
+    x = 1
+    y = 1
+
+    return np.array[x,y]
+
+# TODO: Fix this
+
+# TODO: Unit test this function this week; use simple domain
 
 # This is the Born approximation of the first order, 
 # as it solves the integral equations assuming the incident
 # field is an approximation to the total electric field
-def estimate_initial_contrast(I, J, L, M, dx, dy, k):
-    Xn = np.array([])
-    n = 0
+def solve_first_order(tx):
+    # Estimate permittivity using the min value provided
+    a_1 = p.eps_min * np.ones(p.N, 1) # Permittivity values
+    b_1 = np.zeros(p.M,1)
 
-    for i in range(0,I):
-        for j in range(0,J):
-            gmn = greens_disc(dx, dy, k)
-            Ei = solve_forward()
+    m = 0
+    G_sum = 0
+    for tx in range(1,p.L):
+        for rx in range(1,p.L):
+            m = m + 1
+            if rx == tx:
+                continue
 
-            # How should I estimate Xn to solve Xn
-            Es = solve_inverse(gmn, 1, Ei)
+            obs_pt = get_antenna_coord(rx) # We will have one tx at a time and 11 rx -> M = 11
+            # This loop goes over each element in N = I * J pixels
+            for n in range(1,p.N): 
 
-            # May need to reconfigure this since Es depends on Xn
-            Xn[n] = sum(sum(gmn * Ei * Es, 1, L), 1, M)
-            n = n + 1
+                # This may not be necessary. Depends on how data is arranged
+                # Source coordinate
+                # Find coordinates of pixel
+                src_pt = get_coord(n)
 
-    return Xn
+                # Get data for this pixel 
+                Ez_r = get_field_data(rx, n)
 
+                #Perform discretized surface integral over x and y range
+                K_sum = 0                    
+                for x in range(p.dx/2, p.I - p.dx/2, p.dx): # Use centers of each pixel
+                    for y in range(p.dy/2, p.J - p.dy/2, p.dy):
+                        coord = [x,y]
+                        K_sum = K_sum + greens(obs_pt, coord)
 
-def solve_forward():
-    # Solve the forward problem (fdtd2d)
-    # Either calculate or grab from simulation 
-    Ei = 1
-    return Ei
+                # Add Kji element to K matrix 
+                K[m,n] = Ez_r * p.k^2 * K_sum
 
-def solve_inverse(gmn, Xn, En, N):
-    # Solves the inverse scattering problem
-    Es = sum(gmn*Xn*En, 1, N)
+    # Estimate initial distribution function using zeros vector
+    # TODO: check this
+    a_1 = K / b
 
-def get_coord(pixel, )
-
+    return a_1
 
 # BIM Algorithm:
-# 1. Solve linear inverse problem using Born
-    # Calculate Green's function
-
-    # Need to calculate coordinate for pixel
-
-# 2. Solve scattering problem at object and observation points
-
-# 3. a) Substitute field in 2 into integrand in integral eq and 
-#    b) Solve inverse problem to recover next order distribution ftn
-
+# 1. Solve linear inverse problem for first order using Born approximation
+# 2. Solve forward scattering problem at object and observation points ( USING SOLVER )
+# 3. Substitute field (SOLVED FORWARD) in 2 into integrand in integral eq 
+#       and solve inverse problem (WITH_REGULARIZATION) to recover next order distribution ftn
 # 4. Repeat 2 and compare fields with measured data. If difference < 5% 
 #    of scattered field, terminate successfully. Otherwise repeat until soln converges
 
-# Questions
-
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
-def bim(ei, es, gs, params: Params):
+def bim(ei, es, params: Params):
 
-    # Loop over I and J
-    I = np.array(0,1,params.I) # use inrange
-    J = np.array(0,1,params.J)
-    L = np.array(0,1,params.L)
-    N = np.array(0,1,params.N)
-    M = np.array(0,1,params.M)
-    k = params.k
+    p = params
+    k = p.k
 
-    # Determine contrast function
-    # Is this the same as first-order born approximation?
-    estimate_initial_contrast(I, J, L, M, dx, dy, k)
+    # Perform first-order born approximation to find initial permittivity solution
+    a = solve_first_order()
 
-    K = np.matrix([[0 for _ in range(N)]]*M) # Initialize the MxN matrix
-    
-    for num_iter in range(1,params.misf):
-        for l in range(1,L): # Sources
+    K = np.zeros(p.M, p.N) # Initialize the MxN matrix
+    b = np.zeros(p.M,1) # Mx1 vector
 
-            # Question: is rho' the "source point", as in location of the excited transmitter?
-            # Thinking back, no it's not, I'm just misreading the notation
-            # i -> N
-            # j -> M
-            # p' -> currently "fixed" coordinate
+    # Correct location?
+    # Loop until solution approximates measured data
+    while True:    
+        # Measurement point that tracks location in array 
+        m = 0
 
+        # M: # of transmitters x # of receivers
+        # Assume all transmitters are capable of receiving
+        for tx in range(1,p.L): # Available Transmitters
+            for rx in range(1,p.L): # Available receivers
+                # increment measurement point
+                m = m + 1
 
-            for m in range(1,M): # Samples
+                if rx == tx:
+                    b[m] = 0
+                    continue # Antenna cannot receive and transmit simultaneously
 
-                K_sum = 0
+                # Observation coordinate
+                obs_pt = get_antenna_coord(rx) # We will have one tx at a time and 11 rx -> M = 11
 
-                N = 0
+                Ez_s = 0
+
 
                 # This loop goes over each element in N = I * J pixels
-                for i in range(1,I): # X axis
-                    
-                    for j in range(1,J): # Y axis
+                for n in range(1,p.N): 
 
-                        # Find coordinates of pixel
+                    # This may not be necessary. Depends on how data is arranged
+                    # Source coordinate
+                    # Find coordinates of pixel
+                    src_pt = get_coord(n)
 
-                        # Calculate forward solution for this pixel (I,J)
-                        Ez_r = solve_forward()
-
-
-                        #Ez = Ei(x,y) + surface integral(greens(p-p') * k^2 * de_r * Ez(x',y') * dx' * dy')
-
-                        # Calculate inverse solution
-                        # _r denotes relative value at point r
-                        Xn = eps_r / eps_rb - 1 - 1j * (sig_r - sigma_b) / (omega * eps_b)
-                        Em_s = sum(greens_disc(dx, dy, k) * Xn * En_tot, 1, N)
+                    # __________________________________________
+                    #
+                    # Step 2: Solve forward scattering problem
+                    # __________________________________________
+                    # Get data for this pixel 
+                    Ez_r = get_field_data(rx, n)
 
 
-                         
-                        K_sum = greens() + K_sum
+                    # Perform discretized surface integral over x and y range
+                    K_sum = 0                    
+                    for x in range(p.dx/2, p.I - p.dx/2, p.dx): # Use centers of each pixel
+                        for y in range(p.dy/2, p.J - p.dy/2, p.dy):
+                            coord = [x,y]
+                            K_sum = K_sum + greens(obs_pt, coord)
+
+                    # Add Kji element to K matrix 
+                    K[m,n] = Ez_r * k^2 * K_sum
 
 
+        # ____________________________
+        #
+        # STEP 3: Solve matrix eq for permittivity coefficients
+        # ____________________________
+        # Calculate LHS (Total electric field) using previous permittivity solution to solve forward problem
+        b = K * a
 
-                K[m,N] = 
+        # ----------------------
+        # Perform regularization
+        # ----------------------
+        H = np.matrix(np.matlib.identity(N))
+        H_t = np.transpose(H)
+        K_t = np.transpose(K)   
 
+        # Define arbitrary regularization param
+        gamma = 1E-12 # Should be btn 1e-10 and 1e-15
 
-                # ------------------------------------
-                # Calculate LHS (Total electric field)
-                # ------------------------------------
-                # b = [b(index)+ current]
-                b = []
+        # Regularization matrix
+        R = K_t.dot(K) + gamma * H_t.dot(H)
 
-                # ____________________________
-                #
-                # STEP 2: Solve matrix eq for permittivity coefficients
-                # ____________________________
+        # ------------------------------
+        # Solve for permittivity profile
+        # ------------------------------
+        a = R^-1 * K_t * b
 
-    
-                # ----------------------
-                # Perform regularization
-                # ----------------------
-                H = np.matrix(np.matlib.identity(N))
-                H_t = np.transpose(H)
-                K_t = np.transpose(K)   
+        # ____________________________
+        #
+        # STEP 4: Solve forward problem to recalculate Ez_s
+        # ____________________________
+        # 
+        b = K * a
+                
+        # ____________________________
+        #
+        # STEP 5: Compare to measured data
+        # ____________________________
+        # Calculate error: 
 
-                # Define arbitrary regularization param
-                gamma = 1E-12 # Should be btn 1e-10 to 1e-15
+        # TODO: need to compare all data at once, or piece by piece
+        err = (Ez_s - get_field_data())/Ez_s
 
-                # Regularization matrix
-                R = K_t.dot(K) + gamma * H_t.dot(H)
-
-                # ------------------------------
-                # Solve for permittivity profile
-                # ------------------------------
-                a = R^-1 * K_t * b
+        if err < 0.05:
+            break
 
