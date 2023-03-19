@@ -5,6 +5,17 @@ global K, b, a
 
 global p; Xn
 
+
+# BIM Algorithm:
+# 1. Solve linear inverse problem for first order using Born approximation
+# 2. Solve forward scattering problem at object and observation points ( USING SOLVER )
+# 3. Substitute field (SOLVED FORWARD) in 2 into integrand in integral eq 
+#       and solve inverse problem (WITH_REGULARIZATION) to recover next order distribution ftn
+# 4. Repeat 2 and compare fields with measured data. If difference < 5% 
+#    of scattered field, terminate successfully. Otherwise repeat until soln converges
+
+
+    
 class Params:
 
     # Constants
@@ -70,7 +81,6 @@ def get_antenna_coord(id):
     return np.array[x,y]
 
 # TODO: Fix this
-
 # TODO: Unit test this function this week; use simple domain
 
 # This is the Born approximation of the first order, 
@@ -117,15 +127,6 @@ def solve_first_order(tx):
 
     return a_1
 
-# BIM Algorithm:
-# 1. Solve linear inverse problem for first order using Born approximation
-# 2. Solve forward scattering problem at object and observation points ( USING SOLVER )
-# 3. Substitute field (SOLVED FORWARD) in 2 into integrand in integral eq 
-#       and solve inverse problem (WITH_REGULARIZATION) to recover next order distribution ftn
-# 4. Repeat 2 and compare fields with measured data. If difference < 5% 
-#    of scattered field, terminate successfully. Otherwise repeat until soln converges
-
-
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
 def bim(ei, es, params: Params):
 
@@ -138,7 +139,6 @@ def bim(ei, es, params: Params):
     K = np.zeros(p.M, p.N) # Initialize the MxN matrix
     b = np.zeros(p.M,1) # Mx1 vector
 
-    # Correct location?
     # Loop until solution approximates measured data
     while True:    
         # Measurement point that tracks location in array 
@@ -169,10 +169,10 @@ def bim(ei, es, params: Params):
                     # Find coordinates of pixel
                     src_pt = get_coord(n)
 
-                    # __________________________________________
+                    # _________________________________________________________
                     #
-                    # Step 2: Solve forward scattering problem
-                    # __________________________________________
+                    # Step 2: Solve forward scattering problem (using COMSOL)
+                    # _________________________________________________________
                     # Get data for this pixel 
                     Ez_r = get_field_data(rx, n)
 
