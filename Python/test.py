@@ -1,18 +1,6 @@
 import numpy as np
 import csv
-#from bim_helper import bim
-#from bim_helper import Params
-
-class Node:
-     
-    id = 0
-    Ez = 0.0
-    coord = np.array([0.0,0.0])
-    def __init__(self, id:int, x : float, y:float,  Ez:float):
-        self.id = id
-        self.Ez = Ez
-        self.coord = np.array([x,y])
-
+import bim_helper as bim
 
 freq = 1e9
 fname = "C:/Users/hanzf/OneDrive/Documents/GitHub/microwave_imaging/bim/Python/pt_2_sig_2.csv"
@@ -42,7 +30,7 @@ def main():
                     ez = row[2]
                 else: 
                     ez = 0
-                new_node = Node(count, row[0], row[1], ez)
+                new_node = bim.Node(count, row[0], row[1], ez)
                 field_data.append(new_node)
                 print(new_node.Ez)              
 
@@ -50,20 +38,25 @@ def main():
 
     print(N)
 
-    # Perform parsing
-
-
     if N != I*J:
         print("N mismatch")
-    # dx = (first_x + last_x) / I
-    # dy = (first_y + last_y) / J
 
-    # Until file end
-    #if es == 'NaN':
-    #    es = 0
+    [first_x, first_y] = field_data[0].coord
+    [last_x, last_y] = field_data[N-1].coord 
+    
+    dx = (float(last_x)-float(first_x)) / (I-1)
+    dy = (float(last_y)-float(first_y)) / (J-1)
 
-    #Ez = 
-    #bim(Params(), fname)   
+    print([dx,dy])
+
+    #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
+    # ^No. Each independent measurement improves accuracy of the solution
+    parameters = bim.Params(freq,dx,dy,I,J) 
+    solution = bim.run(parameters, field_data)
+
+    # plot solution
+    print(solution)
+
 
 if __name__ == '__main__':
     main()  
