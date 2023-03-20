@@ -18,16 +18,17 @@ def main():
     with open(fname,'r') as csv_file:
         reader = csv.reader(csv_file)
         i = 0
+        count = 0       
         for row in reader:
             i = i + 1
-            count = 0
             if i == 5:
                 N = int(row[1])
             ez = 0
             if i >= 10 : # Data row
                 count = count + 1 # not to exceed N
                 if row[2] != 'NaN':
-                    ez = row[2]
+                    val = row[2].replace('i', 'j')
+                    ez = complex(val)
                 else: 
                     ez = 0
                 new_node = bim.Node(count, row[0], row[1], ez)
