@@ -4,8 +4,7 @@ import scipy as sci
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 
-global K, Es, epsilon, gs_k
-global parameters, incident_data, scatter_data
+global K, Es, epsilon, parameters, incident_data, scatter_data
 
 # BIM Algorithm:
 # 1. Solve linear inverse problem for first order using Born approximation
@@ -44,13 +43,12 @@ class Params:
     sig_max = 0
     misf = 0 # Number of iterations for bim sets; Can be initialized dynamically as well
     
-
     def __init__(self, freq: int, N : int, M : int):
         self.freq = freq
         self.omega = 2 * np.pi * int(freq)
         self.k = float(self.omega)/3e8
         self.N = N # number of pixels
-        self.M = M # number of pixels
+        self.M = M # number of independent measurements
     
 # Globals
 K = []
@@ -88,7 +86,7 @@ def get_field_data(node):
     global incident_data
 
     # Read data point from csv using the source # and coordinate point
-    Ez = incident_data[node].Ez
+    Ez = incident_data[node].E
     return Ez
 
 def get_scatter_measurements():
@@ -106,21 +104,39 @@ def get_grid_coord(node):
     return [float(x),float(y)]
 
 def get_x_vector(): 
-    global scatter_data
+    global incident_data
 
-    x_vec = []
-    for antenna in scatter_data:
-        x_vec.append(float(antenna.coord[0]))
-    return x_vec
+    X = []
+    #x_vec = set(X)
+    
+    # Not correct
+    #for point in incident_data:
+    #    x_val = float(point.coord[0])
+    #    if x_val not in x_vec:
+    #        X.append(x_val)
+    #        x_vec = set(X)
+    #return X
+
+    for point in incident_data:
+        x_val = float(point.coord[0])
+        X.append(x_val)
+    return X
 
 def get_y_vector(): 
-    global scatter_data
+    global incident_data
 
-    y_vec = []
-    for antenna in scatter_data:
-        y_vec.append(float(antenna.coord[1]))
-    return y_vec
-
+    Y = []
+    y_vec = set(Y)
+    
+    #for point in incident_data:
+    #    y_val = float(point.coord[1])
+    #    if y_val not in y_vec:
+    #        Y.append(y_val)
+    #        y_vec = set(Y)
+    for point in incident_data:
+        x_val = float(point.coord[1])
+        Y.append(x_val)
+    return Y
 
 # collect antenna locations
 def get_receiver_coord(id): 
@@ -167,23 +183,25 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     # guess = np.transpose(K) * Es
 
     # 4
-    
-    # To plot something like 2^ i'll have to map the solution to each coordinate
-    epsilon = np.ones([parameters.N,1]) * 10 #parameters.eps_min
+    epsilon = np.ones([parameters.N,1]) * parameters.eps_min
 
-    fig = plt.figure()
     ax = plt.axes(projection = '3d')
     X = get_x_vector()
     Y = get_y_vector()
-    eps = epsilon.reshape(len(X), len(Y))
-    ax.plot_surface(X,Y,eps)
+    count = 0
+
+    #for point in incident_data:
+    #    ax.scatter(point.coord[0], point.coord[1], epsilon[count])
+    #    count = count + 1
+    ax.scatter(X, Y, epsilon)
+
+    #ax.plot_surface(X,Y,epsilon)
     plt.show()
 
     # 5
     #guess = parameters.eps_max
 
     return epsilon
-
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
 def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
@@ -196,18 +214,20 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
     global scatter_data
 
     incident_data = inc_data
-    incident_data = scat_data
+    scatter_data = scat_data
     parameters = params 
 
-    gs_k = np.zeros([parameters.M, parameters.N])
-    
     # Perform first-order born approximation to 
     # find initial permittivity solution
     epsilon = initial_guess()
+    iteration = 0
+
+    MAX_ITER = 2
 
     # Loop until solution approximates measured data
     awaiting_solution = True
     while awaiting_solution:    
+        iteration = iteration + 1
         # M: # of transmitters x # of receivers
         # Assume all transmitters are capable of receiving
         for m in range(0,parameters.M): # Loop over each independent measurement (rx)
@@ -239,7 +259,6 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
                 gs = greens(obs_pt, src_pt)
 
                 # Add Kji element to K matrix 
-                gs_k[m,n] = parameters.k**2 * gs # store for later
                 K[m,n] = Ez * parameters.k**2 * gs
 
 
@@ -286,12 +305,20 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
         # ____________________________
         # Calculate error: 
         scatter_measured = get_scatter_measurements()
+        err_array = Es.transpose()/scatter_measured
+        abs_error = abs(err_array)
+        err = np.max(abs_error) * 100 # Error (%)
 
-        err = np.max(abs((Es)/scatter_measured)) * 100 # Error (%)
+        # Plot error vs iteration
+        plt.scatter(iteration, err)
+        if iteration > MAX_ITER - 1:
+            break
 
         if err < 5.0:
             awaiting_solution = False
             break
+
+    plt.show()
     
     return epsilon # Permittivity distribution
 

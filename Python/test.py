@@ -1,6 +1,8 @@
 import numpy as np
 import csv
 import bim_helper as bim
+import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
 
 freq = 1e9
 scatter_field_fname = "C:/Users/hanzf/OneDrive/Documents/GitHub/microwave_imaging/bim/COMSOL/Homogeneous/pt2_scatter.csv"
@@ -45,19 +47,16 @@ def main():
         count = 0       
         for row in reader:
             i = i + 1
-            if i == 5:
-                N = int(row[1])
             ez = 0
             if i >= 10 : # Data row
                 if row[2] != 'NaN':
-                    count = count + 1 # not to exceed N
+                    count = count + 1 
                     val = row[2].replace('i', 'j')
                     e_field = complex(val)
-                new_node = bim.Node(count, row[0], row[1], e_field)
-                scatter_field_data.append(new_node)
-                print(new_node.E)              
+                    new_node = bim.Node(count, row[0], row[1], e_field)
+                    scatter_field_data.append(new_node)
         csv_file.close()
-
+        M = count
 
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
@@ -65,7 +64,13 @@ def main():
     solution = bim.run(parameters, incident_field_data, scatter_field_data)
 
     # plot solution
-    print(solution)
+    fig = plt.figure()
+    ax = plt.axes(projection = '3d')
+    X = bim.get_x_vector()
+    Y = bim.get_y_vector()
+    ax.scatter(X, Y, solution)
+    #ax.plot_surface(X,Y, solution)
+    plt.show()
 
 
 if __name__ == '__main__':
