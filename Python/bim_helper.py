@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 
 global K, Es, epsilon, gs_k
-global parameters, node_data, antenna_data
+global parameters, incident_data, scatter_data
 
 # BIM Algorithm:
 # 1. Solve linear inverse problem for first order using Born approximation
@@ -15,20 +15,13 @@ global parameters, node_data, antenna_data
 # 4. Repeat 2 and compare fields with measured data. If difference < 5% 
 #    of scattered field, terminate successfully. Otherwise repeat until soln converges
 
-class Antenna:
-    id = 0
-    coord = np.array([0.0,0.0])
-    def __init__(self, id:int, x : float, y:float):
-        self.id = id
-        self.coord = np.array([float(x),float(y)])
-    
 class Node:
     id = 0
-    Ez = 0.0
+    E = 0.0
     coord = np.array([0.0,0.0])
-    def __init__(self, id:int, x : float, y:float,  Ez:float):
+    def __init__(self, id:int, x : float, y:float,  E:float):
         self.id = id
-        self.Ez = Ez
+        self.E = E
         self.coord = np.array([float(x),float(y)])
     
 class Params:
@@ -42,50 +35,29 @@ class Params:
     I = 0 # number of points along x axis
     J = 0 # number of points along y axis
     N = 0 # number of pixels
-    M = 1 # number of independent measurements
+    M = 12 # number of independent measurements
     eps_rb = 0
-    eps_min = 40
+    eps_min = 40    # eps_min is 40 in the homogeneous domain
     eps_max = 0
     sig_rb = 0
     sig_min = 0
     sig_max = 0
     misf = 0 # Number of iterations for bim sets; Can be initialized dynamically as well
     
-    # eps_min is 40 in the homogeneous domain
 
-    def __init__(self, freq: int, dx : float, dy : float, I : int, J : int):
+    def __init__(self, freq: int, N : int, M : int):
         self.freq = freq
         self.omega = 2 * np.pi * int(freq)
         self.k = float(self.omega)/3e8
-        self.dx = float(dx) # distance between points along x axis
-        self.dy = float(dy) # distance between points along y axis
-        self.I = int(I)  # number of points along x axis
-        self.J = int(J) # number of points along y axis
-        self.N = int(I*J) # number of pixels
-
-    #def __init__(self, freq, dx, dy, I, J, M, eps_rb, eps_min, eps_max, sig_rb, sig_min, sig_max):
-    #    self.freq = freq
-    #    self.omega = 2 * np.pi * freq
-    #    self.k = self.omega/3e8
-    #    self.dx = dx # distance between points along x axis
-    #    self.dy = dy # distance between points along y axis
-    #    self.I = I # number of points along x axis
-    #    self.J = J # number of points along y axis
-    #    self.N = I*J # number of pixels
-    #    self.M = M # number of independent measurements
-    #    self.eps_rb = eps_rb
-    #    self.eps_min = eps_min
-    #    self.eps_max = eps_max
-    #    self.sig_rb = sig_rb
-    #    self.sig_min = sig_min
-    #    self.sig_max = sig_max
-    #    self.misf = 5 # Number of iterations for bim sets; Can be initialized dynamically as well
+        self.N = N # number of pixels
+        self.M = M # number of pixels
     
 # Globals
 K = []
 Es = []
 epsilon = []
-node_data = []
+incident_data = []
+scatter_data = []
 
 # Remember to subtract background medium (E matrix of constant value)
 # Use circle example from Boyu - coordinate.
@@ -113,49 +85,48 @@ def greens_disc(r_m, r_n):
     return green_d
 
 def get_field_data(node):
-    global node_data
+    global incident_data
 
     # Read data point from csv using the source # and coordinate point
-    Ez = node_data[node].Ez
+    Ez = incident_data[node].Ez
     return Ez
 
-def get_complete_field_data():
-    global node_data
+def get_scatter_measurements():
+    global scatter_data
 
-    field_data = []
-    for node in node_data:
-        field_data.append(node.Ez)
-
-    return field_data
+    E_field = []
+    for node in scatter_data:
+        E_field.append(node.E)
+    return E_field
 
 def get_grid_coord(node): 
-    global node_data
+    global incident_data
 
-    [x,y] = node_data[node].coord
+    [x,y] = incident_data[node].coord
     return [float(x),float(y)]
 
 def get_x_vector(): 
-    global antenna_data
+    global scatter_data
 
     x_vec = []
-    for antenna in antenna_data:
+    for antenna in scatter_data:
         x_vec.append(float(antenna.coord[0]))
     return x_vec
 
 def get_y_vector(): 
-    global antenna_data
+    global scatter_data
 
     y_vec = []
-    for antenna in antenna_data:
+    for antenna in scatter_data:
         y_vec.append(float(antenna.coord[1]))
     return y_vec
 
 
-# TODO: collect antenna locations
+# collect antenna locations
 def get_receiver_coord(id): 
-    global antenna_data
+    global scatter_data
 
-    [x,y] = antenna_data[id].coord
+    [x,y] = scatter_data[id].coord
     return [float(x),float(y)]
 
 # TODO: Unit test this function this week; use simple domain
@@ -163,7 +134,7 @@ def get_receiver_coord(id):
 # as it solves the integral equations assuming the incident
 # field is an approximation to the total electric field
 def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
-    global node_data
+    global incident_data
     global parameters
     global K 
     global epsilon
@@ -198,13 +169,14 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     # 4
     
     # To plot something like 2^ i'll have to map the solution to each coordinate
-    epsilon = np.ones([parameters.N,1]) * parameters.eps_min
+    epsilon = np.ones([parameters.N,1]) * 10 #parameters.eps_min
 
     fig = plt.figure()
     ax = plt.axes(projection = '3d')
     X = get_x_vector()
     Y = get_y_vector()
-    ax.plot_surface(X,Y,epsilon)
+    eps = epsilon.reshape(len(X), len(Y))
+    ax.plot_surface(X,Y,eps)
     plt.show()
 
     # 5
@@ -214,22 +186,21 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
 
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
-def run(params: Params, data: np.array(Node), antenna_locations: np.array(Antenna)):
+def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
     # Assign globals
-
     global K
     global Es
     global epsilon    
-    global node_data
+    global incident_data
     global parameters
-    global antenna_data
+    global scatter_data
 
-    node_data = data
+    incident_data = inc_data
+    incident_data = scat_data
     parameters = params 
 
     gs_k = np.zeros([parameters.M, parameters.N])
     
-    antenna_data = antenna_locations
     # Perform first-order born approximation to 
     # find initial permittivity solution
     epsilon = initial_guess()
@@ -307,19 +278,16 @@ def run(params: Params, data: np.array(Node), antenna_locations: np.array(Antenn
         # STEP 4: Solve forward problem to recalculate Ez
         # ____________________________
         # b = K * a
-        # K = b / a
-        K_temp = np.transpose(Es / epsilon) # Is this correct? Retain Ez values for next round?
-        Ez_temp = K_temp/gs_k
+        Es = K.dot(epsilon) # TODO: check
 
         # ____________________________
         #
         # STEP 5: Compare to measured data
         # ____________________________
         # Calculate error: 
+        scatter_measured = get_scatter_measurements()
 
-        Ez_meas = get_complete_field_data()
-
-        err = np.max(abs((Ez_temp)/Ez_meas)) * 100 # Error (%)
+        err = np.max(abs((Es)/scatter_measured)) * 100 # Error (%)
 
         if err < 5.0:
             awaiting_solution = False
