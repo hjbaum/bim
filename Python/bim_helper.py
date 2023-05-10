@@ -107,15 +107,6 @@ def get_x_vector():
     global incident_data
 
     X = []
-    #x_vec = set(X)
-    
-    # Not correct
-    #for point in incident_data:
-    #    x_val = float(point.coord[0])
-    #    if x_val not in x_vec:
-    #        X.append(x_val)
-    #        x_vec = set(X)
-    #return X
 
     for point in incident_data:
         x_val = float(point.coord[0])
@@ -127,12 +118,7 @@ def get_y_vector():
 
     Y = []
     y_vec = set(Y)
-    
-    #for point in incident_data:
-    #    y_val = float(point.coord[1])
-    #    if y_val not in y_vec:
-    #        Y.append(y_val)
-    #        y_vec = set(Y)
+
     for point in incident_data:
         x_val = float(point.coord[1])
         Y.append(x_val)
@@ -157,7 +143,7 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     global Es
 
     # 2, roughly
-    K = np.zeros([parameters.M, parameters.N])
+    K = np.zeros([parameters.M, parameters.N],dtype=np.complex_)
     epsilon = np.zeros([parameters.N, 1]) # Permittivity values
     Es = np.zeros([parameters.M,1])
 
@@ -185,18 +171,13 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     # 4
     epsilon = np.ones([parameters.N,1]) * parameters.eps_min
 
-    ax = plt.axes(projection = '3d')
+    #ax = plt.axes(projection = '3d')
     X = get_x_vector()
     Y = get_y_vector()
     count = 0
 
-    #for point in incident_data:
-    #    ax.scatter(point.coord[0], point.coord[1], epsilon[count])
-    #    count = count + 1
-    ax.scatter(X, Y, epsilon)
-
-    #ax.plot_surface(X,Y,epsilon)
-    plt.show()
+    #ax.scatter(X, Y, epsilon)
+    #plt.show(block =False)
 
     # 5
     #guess = parameters.eps_max
@@ -204,7 +185,7 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     return epsilon
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
-def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
+def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), base_solution: np.array(float)):
     # Assign globals
     global K
     global Es
@@ -222,7 +203,13 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
     epsilon = initial_guess()
     iteration = 0
 
-    MAX_ITER = 2
+    base_epsilon = np.zeros([parameters.N, 1]) 
+    if np.any(base_solution):
+        base_epsilon = base_solution
+
+    MAX_ITER = 10
+
+    fig = plt.figure(2)
 
     # Loop until solution approximates measured data
     awaiting_solution = True
@@ -239,7 +226,7 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
 
                 # Find coordinates of pixel
                 src_pt = get_grid_coord(n)
-
+                
                 # _________________________________________________________
                 #
                 # Step 2: Solve forward scattering problem (using COMSOL)
@@ -247,19 +234,11 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
                 # Get data for this pixel 
                 Ez = get_field_data(n)
 
-                # TODO: check this
-                # Perform discretized surface integral over x and y range
-                # K_sum = 0                    
-                # for x in range(parameters.dx/2, parameters.I - parameters.dx/2, parameters.dx): # Use centers of each pixel
-                #     for y in range(parameters.dy/2, parameters.J - parameters.dy/2, parameters.dy):
-                #         coord = [x,y]
-                #         K_sum = K_sum + greens(obs_pt, coord)
-            
-                # TODO: integrate over x and y range
+                # TODO: CHECK THIS
                 gs = greens(obs_pt, src_pt)
 
                 # Add Kji element to K matrix 
-                K[m,n] = Ez * parameters.k**2 * gs
+                K[m,n] = Ez * parameters.k**2 * gs # Todo: Check casting error
 
 
         # __________________________________________________________
@@ -268,7 +247,7 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
         # ___________________________________________________________
         # Calculate LHS (Total electric field) using previous permittivity solution to solve forward problem
         # b = K * a
-        Es = K.dot(epsilon) # Todo: wrong shape
+        Es = K.dot(epsilon) # Todo: Check casting error
 
         # eps: column of length N
         # Es: column of length M
@@ -297,7 +276,7 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
         # STEP 4: Solve forward problem to recalculate Ez
         # ____________________________
         # b = K * a
-        Es = K.dot(epsilon) # TODO: check
+        Es = K.dot(epsilon-base_epsilon) # TODO: check
 
         # ____________________________
         #
@@ -311,14 +290,16 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node)):
 
         # Plot error vs iteration
         plt.scatter(iteration, err)
-        if iteration > MAX_ITER - 1:
+        if iteration >= MAX_ITER:
             break
 
         if err < 5.0:
             awaiting_solution = False
             break
 
+
     plt.show()
     
-    return epsilon # Permittivity distribution
+    final = epsilon - base_epsilon
+    return final # Permittivity distribution
 
