@@ -1,8 +1,11 @@
 import numpy as np
 import csv
 import bim_helper as bim
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
+import os
 
 freq = 0.9e9
 
@@ -108,28 +111,63 @@ def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_
 
 # Define main function
 def main():
-    # empty domain
-    scatter_field_fname = "C:/Users/hanzf/OneDrive/Documents/GitHub/microwave_imaging/bim/COMSOL/Homogeneous/pt2_0_9GHz.csv"
-    incident_field_fname = "C:/Users/hanzf/OneDrive/Documents/GitHub/microwave_imaging/bim/COMSOL/Homogeneous/pt2_0_9GHz_field.csv"
+    dirname = os.path.dirname(__file__)
+    files_by_source_csv = os.path.join(dirname, 'filenames_by_source.csv')
 
-    # with bleed
-    bleed_scatter_field_fname = "C:/Users/hanzf/OneDrive/Documents/GitHub/microwave_imaging/bim/COMSOL/Homogeneous/pt2_0_9GHz_bleed_scatter.csv"
-    bleed_incident_field_fname = "C:/Users/hanzf/OneDrive/Documents/GitHub/microwave_imaging/bim/COMSOL/Homogeneous/pt2_0_9GHz_bleed_field.csv"
+    print(dirname)
 
-    # Solve base field
-    baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname)
-
-    # Solve field of interest
-    solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution)
-
-    # Plot solution
-    fig = plt.figure(1)
+    fig = plt.figure("Solution")
     ax = plt.axes(projection = '3d')
-    X = bim.get_x_vector()
-    Y = bim.get_y_vector()
-    ax.scatter(X, Y, solution)
-    plt.show()
+    colors = ['blue', 'green']
+    cmap_temp = ['hot', 'winter']
 
+    # Parse the csv for the source files containing field data
+    with open(files_by_source_csv,'r') as csv_file:
+        reader = csv.reader(csv_file)    
+        row_count = 0   
+
+        for row in reader:
+            row_count = row_count + 1
+            if row_count > 1:
+
+                source_id = row[0]  
+
+                # Row format:
+                # Col 1     Col 2         Col 3                   Col 4                     Col 5                      Col 6
+                # Source #  Folder name   Scatter file for bleed  Incident file for bleed   Scatter file for baseline  Incident file for baseline
+
+                # with bleed
+                bleed_scatter_field_fname = os.path.join(dirname, '..', 'COMSOL', row[1], row[2])
+                bleed_incident_field_fname =  os.path.join(dirname, '..', 'COMSOL', row[1], row[3])
+                                                           
+                # baseline domain
+                scatter_field_fname = os.path.join(dirname, '..', 'COMSOL', row[1], row[4])
+                incident_field_fname = os.path.join(dirname, '..', 'COMSOL', row[1], row[5])
+
+                # Solve base field
+                baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname)
+
+                # Solve field of interest
+                solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution)
+
+                # Plot solution
+                legend = 'Source ' + str(source_id)
+
+                X = bim.get_x_vector()
+                Y = bim.get_y_vector()
+                ax.scatter(X, Y, solution, label=legend, color=colors[row_count-2], lw=0.5)    
+                
+                #my_cmap = plt.get_cmap(cmap_temp[row_count-2])
+                #surf = ax.plot_surface(X,Y,solution, cmap=my_cmap, edgecolor='none', label=legend)
+                #surf._edgecolors2d = surf._edgecolor3d
+                #surf._facecolors2d = surf._facecolor3d
+                #fig.colorbar(surf, ax=ax)
+                
+        csv_file.close()
+    
+    ax.legend()  
+    plt.show()  
+    
 
 if __name__ == '__main__':
     main()  

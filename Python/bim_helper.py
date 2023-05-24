@@ -1,6 +1,8 @@
 import numpy as np
-import numpy.matlib
 import scipy as sci
+import numpy.matlib
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 
@@ -29,10 +31,10 @@ class Params:
     freq = 0.0
     omega = 0.0
     k = 0
-    dx = 0.0 # distance between points along x axis
-    dy = 0.0 # distance between points along y axis
-    I = 0 # number of points along x axis
-    J = 0 # number of points along y axis
+    dx = 0.0072 # distance between points along x axis
+    dy = 0.0072 # distance between points along y axis
+    I = 50 # number of points along x axis
+    J = 50 # number of points along y axis
     N = 0 # number of pixels
     M = 12 # number of independent measurements
     eps_rb = 0
@@ -147,37 +149,18 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     epsilon = np.zeros([parameters.N, 1]) # Permittivity values
     Es = np.zeros([parameters.M,1])
 
-    # G_sum = 0
-
-    #     for m in range(1,parameters.M):
-    #         for n in range(1,parameters.N): 
-    #             # Get coordinates of pixel and antenna
-    #             src_pt = get_grid_coord(n)
-    #             obs_pt = get_source_coord(m)
-
-    #             # Get field for this pixel 
-    #             Ez_r = get_field_data(l, n)
-
-    #             # integrate over x and y range
-    #             gs = greens(obs_pt, src_pt)
-
-    #             # Add Kji element to K matrix 
-    #             K[m,n] = Ez_r * parameters.k**2 * gs
-
-    # # Estimate initial distribution function using zeros vector
-    # # TODO: check this
-    # guess = np.transpose(K) * Es
-
     # 4
     epsilon = np.ones([parameters.N,1]) * parameters.eps_min
 
-    #ax = plt.axes(projection = '3d')
     X = get_x_vector()
     Y = get_y_vector()
     count = 0
-
-    #ax.scatter(X, Y, epsilon)
-    #plt.show(block =False)
+    
+    fig = plt.figure("Initial guess")
+    ax = plt.axes(projection = '3d')
+    ax.scatter(X, Y, epsilon)
+    plt.draw()
+    
 
     # 5
     #guess = parameters.eps_max
@@ -207,14 +190,20 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
     if np.any(base_solution):
         base_epsilon = base_solution
 
-    MAX_ITER = 10
+    MAX_ITER = 1
 
-    fig = plt.figure(2)
+    fig = plt.figure("Error")
+    
 
     # Loop until solution approximates measured data
     awaiting_solution = True
     while awaiting_solution:    
         iteration = iteration + 1
+
+        if iteration > MAX_ITER:
+            break
+
+        print("Iteration " + str(iteration))
         # M: # of transmitters x # of receivers
         # Assume all transmitters are capable of receiving
         for m in range(0,parameters.M): # Loop over each independent measurement (rx)
@@ -223,22 +212,22 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
 
             # This loop goes over each element in N = I * J pixels
             for n in range(0,parameters.N): 
-
-                # Find coordinates of pixel
-                src_pt = get_grid_coord(n)
-                
                 # _________________________________________________________
-                #
                 # Step 2: Solve forward scattering problem (using COMSOL)
                 # _________________________________________________________
                 # Get data for this pixel 
-                Ez = get_field_data(n)
+                Ez_n = get_field_data(n)
 
-                # TODO: CHECK THIS
-                gs = greens(obs_pt, src_pt)
+                # Sum over the domain
+                sum = 0
+                for p in range(0,parameters.N):
+                    # Find coordinates of pixel
+                    src_pt = get_grid_coord(p)
+                    gs = greens(obs_pt, src_pt)
+                    sum = sum + gs * parameters.dx * parameters.dy
 
                 # Add Kji element to K matrix 
-                K[m,n] = Ez * parameters.k**2 * gs # Todo: Check casting error
+                K[m,n] = Ez_n * parameters.k**2 * sum # Todo: Check casting error
 
 
         # __________________________________________________________
@@ -261,7 +250,7 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         K_t = np.transpose(K)   
 
         # Define arbitrary regularization param
-        gamma = 1E-12 # Should be btn 1e-10 and 1e-15
+        gamma = 1E-10 # Should be btn 1e-10 and 1e-15
 
         # Regularization matrix
         R = K_t.dot(K) + gamma * H_t.dot(H)
@@ -276,7 +265,7 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         # STEP 4: Solve forward problem to recalculate Ez
         # ____________________________
         # b = K * a
-        Es = K.dot(epsilon-base_epsilon) # TODO: check
+        Es_check = K * (epsilon-base_epsilon) # TODO: check
 
         # ____________________________
         #
@@ -284,22 +273,24 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         # ____________________________
         # Calculate error: 
         scatter_measured = get_scatter_measurements()
-        err_array = Es.transpose()/scatter_measured
+        err_array = Es_check.transpose()/scatter_measured
         abs_error = abs(err_array)
         err = np.max(abs_error) * 100 # Error (%)
 
         # Plot error vs iteration
         plt.scatter(iteration, err)
-        if iteration >= MAX_ITER:
-            break
+        plt.show()
+        #plt.pause(0.0001)
+
+        
 
         if err < 5.0:
             awaiting_solution = False
             break
-
-
-    plt.show()
     
+
+    #plt.show()
+
     final = epsilon - base_epsilon
     return final # Permittivity distribution
 

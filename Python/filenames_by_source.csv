@@ -1,0 +1,3 @@
+﻿Source ID,Folder,Scatter E-Field File (bleed),Incident E-Field File (bleed),Scatter E-Field File (empty),Incident E-Field File (empty)
+2,Homogeneous,pt2_0_9GHz_bleed_scatter.csv,pt2_0_9GHz_bleed_field.csv,pt2_0_9GHz.csv,pt2_0_9GHz_field.csv
+8,Homogeneous,pt8_0_9GHz_bleed_scatter.csv,pt8_0_9GHz_bleed_field.csv,pt8_0_9GHz_scatter.csv,pt8_0_9GHz_field.csv
