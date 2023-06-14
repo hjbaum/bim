@@ -156,10 +156,10 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     Y = get_y_vector()
     count = 0
     
-    fig = plt.figure("Initial guess")
-    ax = plt.axes(projection = '3d')
-    ax.scatter(X, Y, epsilon)
-    plt.draw()
+    #fig = plt.figure("Initial guess")
+    #ax = plt.axes(projection = '3d')
+    #ax.scatter(X, Y, epsilon)
+    #plt.draw()
     
 
     # 5
@@ -168,7 +168,7 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     return epsilon
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
-def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), base_solution: np.array(float)):
+def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), base_solution: np.array(float), tx_id):
     # Assign globals
     global K
     global Es
@@ -183,32 +183,43 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
 
     # Perform first-order born approximation to 
     # find initial permittivity solution
-    epsilon = initial_guess()
-    iteration = 0
+    if np.any(base_solution):
+        epsilon = base_solution
+    else:
+        epsilon = initial_guess()  
 
     base_epsilon = np.zeros([parameters.N, 1]) 
     if np.any(base_solution):
         base_epsilon = base_solution
 
+    # Define max number of iterations to compute. Otherwise,
+    #   the program will run until the error is less than 5%
     MAX_ITER = 1
 
-    fig = plt.figure("Error")
-    
+    # Define arbitrary regularization param
+    gamma = 0.5 #E-10 # Should be btn 1e-10 and 1e-15
 
+    #fig = plt.figure("Error")
+    
     # Loop until solution approximates measured data
+    iteration = 0    
     awaiting_solution = True
     while awaiting_solution:    
         iteration = iteration + 1
-
+        
         if iteration > MAX_ITER:
             break
 
         print("Iteration " + str(iteration))
+        
         # M: # of transmitters x # of receivers
         # Assume all transmitters are capable of receiving
         for m in range(0,parameters.M): # Loop over each independent measurement (rx)
             # Observation coordinate
             obs_pt = get_receiver_coord(m) 
+
+            if m == tx_id: 
+                continue
 
             # This loop goes over each element in N = I * J pixels
             for n in range(0,parameters.N): 
@@ -230,6 +241,11 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
                 K[m,n] = Ez_n * parameters.k**2 * sum # Todo: Check casting error
 
 
+        # Plot K matrix
+        #fig = plt.figure("K matrix")
+        #plt.scatter(K)
+        #plt.show()
+
         # __________________________________________________________
         #
         # STEP 3: Solve matrix eq for permittivity coefficients
@@ -248,9 +264,6 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         H = np.matrix(np.matlib.identity(parameters.N))
         H_t = np.transpose(H)
         K_t = np.transpose(K)   
-
-        # Define arbitrary regularization param
-        gamma = 1E-10 # Should be btn 1e-10 and 1e-15
 
         # Regularization matrix
         R = K_t.dot(K) + gamma * H_t.dot(H)
@@ -274,22 +287,24 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         # Calculate error: 
         scatter_measured = get_scatter_measurements()
         err_array = Es_check.transpose()/scatter_measured
-        abs_error = abs(err_array)
-        err = np.max(abs_error) * 100 # Error (%)
+        ave_error = abs(np.average(err_array.transpose()))
+        percent_err = ave_error * 100 # Error (%)
+        print("Error: ", str(percent_err), "%")
+        
+        #if np.any(base_solution):
+        #    fig = plt.figure("Error")
+        #    plt.scatter(err_array)
+        #    plt.show()
 
         # Plot error vs iteration
-        plt.scatter(iteration, err)
-        plt.show()
+        #plt.scatter(iteration, err)
         #plt.pause(0.0001)
 
-        
-
-        if err < 5.0:
+        if percent_err < 5.0:
+            print("Error threshold met!")
             awaiting_solution = False
             break
-    
 
-    #plt.show()
 
     final = epsilon - base_epsilon
     return final # Permittivity distribution

@@ -9,7 +9,7 @@ import os
 
 freq = 0.9e9
 
-def solve_baseline(incident_field_fname, scatter_field_fname):
+def solve_baseline(incident_field_fname, scatter_field_fname, tx_id):
     incident_field_data = []
     scatter_field_data = []
 
@@ -55,11 +55,11 @@ def solve_baseline(incident_field_fname, scatter_field_fname):
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
     parameters = bim.Params(freq,N,M) 
-    solution = bim.run(parameters, incident_field_data, scatter_field_data, [])
+    solution = bim.run(parameters, incident_field_data, scatter_field_data, [], tx_id)
     
     return solution
 
-def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution):
+def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution, tx_id):
     incident_field_data = []
     scatter_field_data = []
 
@@ -105,7 +105,7 @@ def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
     parameters = bim.Params(freq,N,M) 
-    solution = bim.run(parameters, incident_field_data, scatter_field_data, baseline_solution)
+    solution = bim.run(parameters, incident_field_data, scatter_field_data, baseline_solution, tx_id)
 
     return solution
 
@@ -126,6 +126,7 @@ def main():
         reader = csv.reader(csv_file)    
         row_count = 0   
 
+        
         for row in reader:
             row_count = row_count + 1
             if row_count > 1:
@@ -145,23 +146,28 @@ def main():
                 incident_field_fname = os.path.join(dirname, '..', 'COMSOL', row[1], row[5])
 
                 # Solve base field
-                baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname)
-
+                baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname, int(source_id))
+                # Plot absolute value; currently dropping imag component
+                #ax.scatter(X, Y, abs(baseline_solution), label=legend, color=colors[row_count-2], lw=0.5)    
+                
                 # Solve field of interest
-                solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution)
+                solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution, int(source_id))
 
                 # Plot solution
                 legend = 'Source ' + str(source_id)
 
                 X = bim.get_x_vector()
                 Y = bim.get_y_vector()
-                ax.scatter(X, Y, solution, label=legend, color=colors[row_count-2], lw=0.5)    
+                # Plot absolute value; currently dropping imag component
+                ax.scatter(X, Y, abs(solution), label=legend, color=colors[row_count-2], lw=0.5)    
                 
                 #my_cmap = plt.get_cmap(cmap_temp[row_count-2])
                 #surf = ax.plot_surface(X,Y,solution, cmap=my_cmap, edgecolor='none', label=legend)
                 #surf._edgecolors2d = surf._edgecolor3d
                 #surf._facecolors2d = surf._facecolor3d
                 #fig.colorbar(surf, ax=ax)
+                
+                break
                 
         csv_file.close()
     
