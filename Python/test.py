@@ -4,6 +4,7 @@ import bim_helper as bim
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+import scipy.io
 from mpl_toolkits import mplot3d
 import os
 
@@ -119,14 +120,12 @@ def main():
     fig = plt.figure("Solution")
     ax = plt.axes(projection = '3d')
     colors = ['blue', 'green']
-    cmap_temp = ['hot', 'winter']
 
     # Parse the csv for the source files containing field data
     with open(files_by_source_csv,'r') as csv_file:
         reader = csv.reader(csv_file)    
         row_count = 0   
 
-        
         for row in reader:
             row_count = row_count + 1
             if row_count > 1:
@@ -134,38 +133,43 @@ def main():
                 source_id = row[0]  
 
                 # Row format:
-                # Col 1     Col 2         Col 3                   Col 4                     Col 5                      Col 6
-                # Source #  Folder name   Scatter file for bleed  Incident file for bleed   Scatter file for baseline  Incident file for baseline
+                # Col 0         Col 1           Col 2                       
+                # Source ID     Alternate ID    Folder name     
+                #
+                # Col 3                         Col 4                     
+                # Scatter file for bleed        Incident file for bleed   
+                # 
+                # Col 5                         Col 6
+                # Scatter file for baseline     Incident file for baseline
 
                 # with bleed
-                bleed_scatter_field_fname = os.path.join(dirname, '..', 'COMSOL', row[1], row[2])
-                bleed_incident_field_fname =  os.path.join(dirname, '..', 'COMSOL', row[1], row[3])
+                bleed_scatter_field_fname = os.path.join(dirname, '..', 'COMSOL', row[2], row[3])
+                bleed_incident_field_fname =  os.path.join(dirname, '..', 'COMSOL', row[2], row[4])
                                                            
                 # baseline domain
-                scatter_field_fname = os.path.join(dirname, '..', 'COMSOL', row[1], row[4])
-                incident_field_fname = os.path.join(dirname, '..', 'COMSOL', row[1], row[5])
+                scatter_field_fname = os.path.join(dirname, '..', 'COMSOL', row[2], row[5])
+                incident_field_fname = os.path.join(dirname, '..', 'COMSOL', row[2], row[6])
 
                 # Solve base field
                 baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname, int(source_id))
-                # Plot absolute value; currently dropping imag component
+                # Plot absolute value instead of dropping imag component
                 #ax.scatter(X, Y, abs(baseline_solution), label=legend, color=colors[row_count-2], lw=0.5)    
                 
                 # Solve field of interest
                 solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution, int(source_id))
 
+                X = bim.get_x_vector()
+                Y = bim.get_y_vector()
+
+                name = 'epsilon_src' + str(source_id) + '.mat'
+
+                scipy.io.savemat(name, dict(x=X, y=Y, solution=solution))
+
                 # Plot solution
                 legend = 'Source ' + str(source_id)
 
-                X = bim.get_x_vector()
-                Y = bim.get_y_vector()
                 # Plot absolute value; currently dropping imag component
                 ax.scatter(X, Y, abs(solution), label=legend, color=colors[row_count-2], lw=0.5)    
-                
-                #my_cmap = plt.get_cmap(cmap_temp[row_count-2])
-                #surf = ax.plot_surface(X,Y,solution, cmap=my_cmap, edgecolor='none', label=legend)
-                #surf._edgecolors2d = surf._edgecolor3d
-                #surf._facecolors2d = surf._facecolor3d
-                #fig.colorbar(surf, ax=ax)
                 
                 break
                 

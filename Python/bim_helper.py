@@ -119,7 +119,6 @@ def get_y_vector():
     global incident_data
 
     Y = []
-    y_vec = set(Y)
 
     for point in incident_data:
         x_val = float(point.coord[1])
@@ -181,15 +180,22 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
     scatter_data = scat_data
     parameters = params 
 
+    # Indicates if we are calculating the solution for 
+    #   an empty domain vs the bleed domain
+    running_baseline = False
+
     # Perform first-order born approximation to 
-    # find initial permittivity solution
+    #   find initial permittivity solution
     if np.any(base_solution):
         epsilon = base_solution
+        running_baseline = False
     else:
-        epsilon = initial_guess()  
+        epsilon = initial_guess() 
+        running_baseline = True 
 
     base_epsilon = np.zeros([parameters.N, 1]) 
-    if np.any(base_solution):
+
+    if not running_baseline:
         base_epsilon = base_solution
 
     # Define max number of iterations to compute. Otherwise,
@@ -197,7 +203,7 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
     MAX_ITER = 1
 
     # Define arbitrary regularization param
-    gamma = 0.5 #E-10 # Should be btn 1e-10 and 1e-15
+    gamma = 0.00001 #E-10 # Recommendation between 1e-10 and 1e-15
 
     #fig = plt.figure("Error")
     
@@ -218,9 +224,6 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
             # Observation coordinate
             obs_pt = get_receiver_coord(m) 
 
-            if m == tx_id: 
-                continue
-
             # This loop goes over each element in N = I * J pixels
             for n in range(0,parameters.N): 
                 # _________________________________________________________
@@ -234,7 +237,7 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
                 for p in range(0,parameters.N):
                     # Find coordinates of pixel
                     src_pt = get_grid_coord(p)
-                    gs = greens(obs_pt, src_pt)
+                    gs = greens(obs_pt, src_pt) # Save for reference
                     sum = sum + gs * parameters.dx * parameters.dy
 
                 # Add Kji element to K matrix 
@@ -278,32 +281,25 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         # STEP 4: Solve forward problem to recalculate Ez
         # ____________________________
         # b = K * a
-        Es_check = K * (epsilon-base_epsilon) # TODO: check
+        Es_check = K.dot(epsilon-base_epsilon) # TODO: check
 
         # ____________________________
         #
         # STEP 5: Compare to measured data
         # ____________________________
         # Calculate error: 
-        scatter_measured = get_scatter_measurements()
-        err_array = Es_check.transpose()/scatter_measured
-        ave_error = abs(np.average(err_array.transpose()))
-        percent_err = ave_error * 100 # Error (%)
-        print("Error: ", str(percent_err), "%")
+
+        if not running_baseline:
+            scatter_measured = get_scatter_measurements()
+            err_array = (Es_check.transpose() - scatter_measured) / scatter_measured
+            ave_error = abs(np.average(err_array.transpose()))
+            percent_err = ave_error * 100 # Error (%)
+            print("Error: ", str(percent_err), "%")
         
-        #if np.any(base_solution):
-        #    fig = plt.figure("Error")
-        #    plt.scatter(err_array)
-        #    plt.show()
-
-        # Plot error vs iteration
-        #plt.scatter(iteration, err)
-        #plt.pause(0.0001)
-
-        if percent_err < 5.0:
-            print("Error threshold met!")
-            awaiting_solution = False
-            break
+            if percent_err < 5.0:
+                print("Error threshold met!")
+                awaiting_solution = False
+                break
 
 
     final = epsilon - base_epsilon
