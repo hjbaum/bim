@@ -26,11 +26,11 @@ def solve_baseline(incident_field_fname, scatter_field_fname, tx_id):
             ez = 0
             if i >= 10 : # Data row
                 if row[2] != 'NaN': # if NaN, this point is outside the antenna limits
-                    count = count + 1 # not to exceed N
                     val = row[2].replace('i', 'j')
                     ez = complex(val)
                     new_node = bim.Node(count, row[0], row[1], ez)
                     incident_field_data.append(new_node)
+                    count = count + 1 # not to exceed N
         csv_file.close()
         N = count # Check
 
@@ -45,13 +45,14 @@ def solve_baseline(incident_field_fname, scatter_field_fname, tx_id):
             ez = 0
             if i >= 10 : # Data row
                 if row[2] != 'NaN':
-                    count = count + 1 
                     val = row[2].replace('i', 'j')
                     e_field = complex(val)
                     new_node = bim.Node(count, row[0], row[1], e_field)
                     scatter_field_data.append(new_node)
+                    count = count + 1 
         csv_file.close()
         M = count
+        print("M = ", str(M))
 
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
@@ -76,11 +77,11 @@ def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_
             ez = 0
             if i >= 10 : # Data row
                 if row[2] != 'NaN': # if NaN, this point is outside the antenna limits
-                    count = count + 1 # not to exceed N
                     val = row[2].replace('i', 'j')
                     ez = complex(val)
                     new_node = bim.Node(count, row[0], row[1], ez)
                     incident_field_data.append(new_node)
+                    count = count + 1 # not to exceed N
         csv_file.close()
         N = count # Check
 
@@ -95,13 +96,14 @@ def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_
             ez = 0
             if i >= 10 : # Data row
                 if row[2] != 'NaN':
-                    count = count + 1 
                     val = row[2].replace('i', 'j')
                     e_field = complex(val)
                     new_node = bim.Node(count, row[0], row[1], e_field)
                     scatter_field_data.append(new_node)
+                    count = count + 1         
         csv_file.close()
         M = count
+        print("M = ", str(M))
 
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
@@ -152,9 +154,8 @@ def main():
 
                 # Solve base field
                 baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname, int(source_id))
-                # Plot absolute value instead of dropping imag component
-                #ax.scatter(X, Y, abs(baseline_solution), label=legend, color=colors[row_count-2], lw=0.5)    
-                
+
+
                 # Solve field of interest
                 solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution, int(source_id))
 

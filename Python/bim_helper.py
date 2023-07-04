@@ -137,32 +137,10 @@ def get_receiver_coord(id):
 # as it solves the integral equations assuming the incident
 # field is an approximation to the total electric field
 def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
-    global incident_data
     global parameters
-    global K 
-    global epsilon
-    global Es
-
-    # 2, roughly
-    K = np.zeros([parameters.M, parameters.N],dtype=np.complex_)
-    epsilon = np.zeros([parameters.N, 1]) # Permittivity values
-    Es = np.zeros([parameters.M,1])
 
     # 4
     epsilon = np.ones([parameters.N,1]) * parameters.eps_min
-
-    X = get_x_vector()
-    Y = get_y_vector()
-    count = 0
-    
-    #fig = plt.figure("Initial guess")
-    #ax = plt.axes(projection = '3d')
-    #ax.scatter(X, Y, epsilon)
-    #plt.draw()
-    
-
-    # 5
-    #guess = parameters.eps_max
 
     return epsilon
 
@@ -176,9 +154,21 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
     global parameters
     global scatter_data
 
+    # Initialize data structures
     incident_data = inc_data
     scatter_data = scat_data
-    parameters = params 
+    parameters = params
+    
+    # Initialize matrices and arrays
+    # M x N matrix
+    K = np.zeros([parameters.M, parameters.N],dtype=np.complex_)
+
+    # length N column 
+    epsilon = np.zeros([parameters.N, 1]) # Permittivity values
+
+    # length M row 
+    Es = np.zeros([parameters.M,1])
+
 
     # Indicates if we are calculating the solution for 
     #   an empty domain vs the bleed domain
@@ -193,19 +183,33 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         epsilon = initial_guess() 
         running_baseline = True 
 
-    base_epsilon = np.zeros([parameters.N, 1]) 
+    base_epsilon = np.zeros([parameters.N, 1],dtype=np.complex_) 
 
     if not running_baseline:
         base_epsilon = base_solution
 
     # Define max number of iterations to compute. Otherwise,
     #   the program will run until the error is less than 5%
-    MAX_ITER = 1
+    MAX_ITER = 10
 
     # Define arbitrary regularization param
-    gamma = 0.00001 #E-10 # Recommendation between 1e-10 and 1e-15
+    gamma = 0.1 #E-10 # Recommendation between 1e-10 and 1e-15
 
     #fig = plt.figure("Error")
+    # Perform pre-calculations by storing Greens summations
+    greens_by_source = np.zeros([parameters.M,1])
+    for m in range(0,parameters.M): # Loop over each independent measurement (rx)
+        # Observation coordinate
+        obs_pt = get_receiver_coord(m) 
+
+        # TODO: Check. Calculate and store Greens integral for this M
+        sum = 0
+        for p in range(0,parameters.N): # Sum over the domain
+            # Find coordinates of pixel
+            src_pt = get_grid_coord(p)
+            gs = greens(obs_pt, src_pt) # Save for reference
+            sum = sum + gs * parameters.dx * parameters.dy
+        greens_by_source[m] = sum
     
     # Loop until solution approximates measured data
     iteration = 0    
@@ -221,8 +225,6 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         # M: # of transmitters x # of receivers
         # Assume all transmitters are capable of receiving
         for m in range(0,parameters.M): # Loop over each independent measurement (rx)
-            # Observation coordinate
-            obs_pt = get_receiver_coord(m) 
 
             # This loop goes over each element in N = I * J pixels
             for n in range(0,parameters.N): 
@@ -230,36 +232,18 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
                 # Step 2: Solve forward scattering problem (using COMSOL)
                 # _________________________________________________________
                 # Get data for this pixel 
-                Ez_n = get_field_data(n)
-
-                # Sum over the domain
-                sum = 0
-                for p in range(0,parameters.N):
-                    # Find coordinates of pixel
-                    src_pt = get_grid_coord(p)
-                    gs = greens(obs_pt, src_pt) # Save for reference
-                    sum = sum + gs * parameters.dx * parameters.dy
+                Ez_n = get_field_data(n) # n,m)
 
                 # Add Kji element to K matrix 
-                K[m,n] = Ez_n * parameters.k**2 * sum # Todo: Check casting error
-
-
-        # Plot K matrix
-        #fig = plt.figure("K matrix")
-        #plt.scatter(K)
-        #plt.show()
-
-        # __________________________________________________________
-        #
+                K[m,n] = Ez_n * parameters.k**2 * greens_by_source[m] # Todo: Check casting error
+       
+        # _________________________________________________________
         # STEP 3: Solve matrix eq for permittivity coefficients
         # ___________________________________________________________
         # Calculate LHS (Total electric field) using previous permittivity solution to solve forward problem
         # b = K * a
+        # Es = get_scatter_data(m)
         Es = K.dot(epsilon) # Todo: Check casting error
-
-        # eps: column of length N
-        # Es: column of length M
-        # K : M x N matrix
 
         # ----------------------
         # Perform regularization
