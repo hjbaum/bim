@@ -84,6 +84,14 @@ def greens_disc(r_m, r_n):
     green_d = -1j/2 * np.pi * parameters.k * an * J1 * H0_2
     return green_d
 
+# Calculates the mean squared error of two arrays
+def calculate_mse(actual, predicted):
+    actual = np.array(actual, dtype=np.complex_)
+    predicted = np.array(predicted, dtype=np.complex_)
+    diff = np.subtract(actual, predicted)
+    diff_squared = np.square(diff)
+    return abs(diff_squared.mean())
+
 def get_field_data(node):
     global incident_data
 
@@ -162,13 +170,10 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
     # Initialize matrices and arrays
     # M x N matrix
     K = np.zeros([parameters.M, parameters.N],dtype=np.complex_)
-
     # length N column 
     epsilon = np.zeros([parameters.N, 1]) # Permittivity values
-
     # length M row 
     Es = np.zeros([parameters.M,1])
-
 
     # Indicates if we are calculating the solution for 
     #   an empty domain vs the bleed domain
@@ -193,11 +198,11 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
     MAX_ITER = 10
 
     # Define arbitrary regularization param
-    gamma = 0.1 #E-10 # Recommendation between 1e-10 and 1e-15
+    gamma = 0.05 #E-10 # Recommendation between 1e-10 and 1e-15
 
     #fig = plt.figure("Error")
     # Perform pre-calculations by storing Greens summations
-    greens_by_source = np.zeros([parameters.M,1])
+    greens_by_source = np.zeros([parameters.M,1], dtype=np.complex_)
     for m in range(0,parameters.M): # Loop over each independent measurement (rx)
         # Observation coordinate
         obs_pt = get_receiver_coord(m) 
@@ -274,17 +279,23 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         # Calculate error: 
 
         if not running_baseline:
+
+            # Calculate the average percent error [ (experimental - actual) / actual ]
             scatter_measured = get_scatter_measurements()
             err_array = (Es_check.transpose() - scatter_measured) / scatter_measured
             ave_error = abs(np.average(err_array.transpose()))
             percent_err = ave_error * 100 # Error (%)
             print("Error: ", str(percent_err), "%")
         
+            # TODO: value is far too high
+            # Calculate Mean Squared Error per Chew et al
+            mse = calculate_mse(scatter_measured, Es_check.transpose())
+            print("MSE: ", str(mse*100), "%")
+
             if percent_err < 5.0:
                 print("Error threshold met!")
                 awaiting_solution = False
                 break
-
 
     final = epsilon - base_epsilon
     return final # Permittivity distribution
