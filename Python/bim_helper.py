@@ -92,6 +92,16 @@ def calculate_mse(actual, predicted):
     diff_squared = np.square(diff)
     return abs(diff_squared.mean())
 
+# Calculates the relative mean squared error of two arrays
+#  as defined by Chew et al
+def calculate_relative_mse(actual, predicted):
+    actual = np.array(actual, dtype=np.complex_)
+    predicted = np.array(predicted, dtype=np.complex_)
+    diff = np.subtract(predicted, actual)
+    fraction = np.sum(np.square(diff)) / np.sum(np.square(actual))
+
+    return abs(np.sqrt(fraction))
+
 def get_field_data(node):
     global incident_data
 
@@ -287,9 +297,8 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
             percent_err = ave_error * 100 # Error (%)
             print("Error: ", str(percent_err), "%")
         
-            # TODO: value is far too high
-            # Calculate Mean Squared Error per Chew et al
-            mse = calculate_mse(scatter_measured, Es_check.transpose())
+            # Calculate relative Mean Squared Error per Chew et al
+            mse = calculate_relative_mse(scatter_measured, Es_check.transpose())
             print("MSE: ", str(mse*100), "%")
 
             if percent_err < 5.0:
