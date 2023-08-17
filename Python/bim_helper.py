@@ -18,11 +18,11 @@ global K, Es, epsilon, parameters, incident_data, scatter_data
 
 class Node:
     id = 0
-    E = 0.0
+    value = 0.0
     coord = np.array([0.0,0.0])
-    def __init__(self, id:int, x : float, y:float,  E:float):
+    def __init__(self, id:int, x : float, y:float,  value:float):
         self.id = id
-        self.E = E
+        self.value = value
         self.coord = np.array([float(x),float(y)])
     
 class Params:
@@ -102,52 +102,40 @@ def calculate_relative_mse(actual, predicted):
 
     return abs(np.sqrt(fraction))
 
-def get_field_data(node):
+def get_field_data(source, node):
     global incident_data
 
     # Read data point from csv using the source # and coordinate point
-    Ez = incident_data[node].E
+    Ez = incident_data[source][node].value
     return Ez
 
-def get_scatter_measurements():
+
+def get_scatter_data(source):
+    global scatter_data
+
+    # Read data point from csv using the source # and coordinate point
+    Es = scatter_data[source].value
+    return Es
+
+def get_scatter_measurements(source):
     global scatter_data
 
     E_field = []
-    for node in scatter_data:
-        E_field.append(node.E)
+    for node in scatter_data[source]:
+        E_field.append(node.value)
     return E_field
 
 def get_grid_coord(node): 
     global incident_data
 
-    [x,y] = incident_data[node].coord
+    [x,y] = incident_data[0][node].coord
     return [float(x),float(y)]
-
-def get_x_vector(): 
-    global incident_data
-
-    X = []
-
-    for point in incident_data:
-        x_val = float(point.coord[0])
-        X.append(x_val)
-    return X
-
-def get_y_vector(): 
-    global incident_data
-
-    Y = []
-
-    for point in incident_data:
-        x_val = float(point.coord[1])
-        Y.append(x_val)
-    return Y
 
 # collect antenna locations
 def get_receiver_coord(id): 
     global scatter_data
 
-    [x,y] = scatter_data[id].coord
+    [x,y] = scatter_data[id][0].coord
     return [float(x),float(y)]
 
 # TODO: Unit test this function this week; use simple domain
@@ -163,7 +151,7 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     return epsilon
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
-def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), base_solution: np.array(float), tx_id):
+def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), base_solution: np.array(float)):
     # Assign globals
     global K
     global Es
@@ -205,10 +193,10 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
 
     # Define max number of iterations to compute. Otherwise,
     #   the program will run until the error is less than 5%
-    MAX_ITER = 10
+    MAX_ITER = 1
 
     # Define arbitrary regularization param
-    gamma = 0.05 #E-10 # Recommendation between 1e-10 and 1e-15
+    gamma = 0.000001 #E-10 # Recommendation between 1e-10 and 1e-15
 
     #fig = plt.figure("Error")
     # Perform pre-calculations by storing Greens summations
@@ -239,72 +227,76 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
         
         # M: # of transmitters x # of receivers
         # Assume all transmitters are capable of receiving
-        for m in range(0,parameters.M): # Loop over each independent measurement (rx)
 
-            # This loop goes over each element in N = I * J pixels
-            for n in range(0,parameters.N): 
-                # _________________________________________________________
-                # Step 2: Solve forward scattering problem (using COMSOL)
-                # _________________________________________________________
-                # Get data for this pixel 
-                Ez_n = get_field_data(n) # n,m)
+        for tx in range(0,parameters.M):
+            for m in range(0,parameters.M): # Loop over each independent measurement (rx)
 
-                # Add Kji element to K matrix 
-                K[m,n] = Ez_n * parameters.k**2 * greens_by_source[m] # Todo: Check casting error
-       
-        # _________________________________________________________
-        # STEP 3: Solve matrix eq for permittivity coefficients
-        # ___________________________________________________________
-        # Calculate LHS (Total electric field) using previous permittivity solution to solve forward problem
-        # b = K * a
-        # Es = get_scatter_data(m)
-        Es = K.dot(epsilon) # Todo: Check casting error
+                if tx == m: 
+                    continue
 
-        # ----------------------
-        # Perform regularization
-        # ----------------------
-        H = np.matrix(np.matlib.identity(parameters.N))
-        H_t = np.transpose(H)
-        K_t = np.transpose(K)   
+                # This loop goes over each element in N = I * J pixels
+                for n in range(0,parameters.N): 
+                    # _________________________________________________________
+                    # Step 2: Solve forward scattering problem (using COMSOL)
+                    # _________________________________________________________
+                    # Get data for this pixel 
+                    Ez_n = get_field_data(tx,n) # TODO: tx or m here?
 
-        # Regularization matrix
-        R = K_t.dot(K) + gamma * H_t.dot(H)
-
-        # ------------------------------
-        # Solve for permittivity profile
-        # ------------------------------
-        epsilon = R**-1 * K_t * Es  # TODO: is this correct?
-
-        # ____________________________
-        #
-        # STEP 4: Solve forward problem to recalculate Ez
-        # ____________________________
-        # b = K * a
-        Es_check = K.dot(epsilon-base_epsilon) # TODO: check
-
-        # ____________________________
-        #
-        # STEP 5: Compare to measured data
-        # ____________________________
-        # Calculate error: 
-
-        if not running_baseline:
-
-            # Calculate the average percent error [ (experimental - actual) / actual ]
-            scatter_measured = get_scatter_measurements()
-            err_array = (Es_check.transpose() - scatter_measured) / scatter_measured
-            ave_error = abs(np.average(err_array.transpose()))
-            percent_err = ave_error * 100 # Error (%)
-            print("Error: ", str(percent_err), "%")
+                    # Add Kji element to K matrix 
+                    K[m,n] = Ez_n * parameters.k**2 * greens_by_source[m] # Todo: Check casting error
         
-            # Calculate relative Mean Squared Error per Chew et al
-            mse = calculate_relative_mse(scatter_measured, Es_check.transpose())
-            print("MSE: ", str(mse*100), "%")
+            # _________________________________________________________
+            # STEP 3: Solve matrix eq for permittivity coefficients
+            # ___________________________________________________________
+            # Calculate LHS (Total electric field) using previous permittivity solution to solve forward problem
+            # b = K * a
+            Es = K.dot(epsilon) #get_scatter_measurements(tx) # 
+            print("Es", np.size(Es))
 
-            if percent_err < 5.0:
-                print("Error threshold met!")
-                awaiting_solution = False
-                break
+            # ----------------------
+            # Perform regularization
+            # ----------------------
+            H = np.matrix(np.matlib.identity(parameters.N))
+            H_t = np.transpose(H)
+            K_t = np.transpose(K)   
+
+            # Regularization matrix
+            R = K_t.dot(K) + gamma * H_t.dot(H)
+
+            # ------------------------------
+            # Solve for the permittivity profile
+            # -----------------------------
+
+            epsilon = (R**-1 * K_t) * (Es)  # TODO: is this correct?
+
+            # ____________________________
+            # STEP 4: Solve forward problem to recalculate Ez
+            # ____________________________
+            # b = K * a
+            Es_check = K.dot(epsilon-base_epsilon) # TODO: check
+
+            # ____________________________
+            # STEP 5: Compare to measured data
+            # ____________________________
+            # Calculate error: 
+
+            if not running_baseline:
+
+                # Calculate the average percent error [ (experimental - actual) / actual ]
+                scatter_measured = get_scatter_measurements(tx)
+                err_array = (Es_check.transpose() - scatter_measured) / scatter_measured
+                ave_error = abs(np.average(err_array.transpose()))
+                percent_err = ave_error * 100 # Error (%)
+                #print("Error: ", str(percent_err), "%")
+            
+                # Calculate relative Mean Squared Error per Chew et al
+                mse = 100 * calculate_relative_mse(scatter_measured, Es_check.transpose())
+                print("MSE: ", str(mse), "%")
+
+                if mse < 5.0:
+                    print("Error threshold met!")
+                    awaiting_solution = False
+                    break
 
     final = epsilon - base_epsilon
     return final # Permittivity distribution
