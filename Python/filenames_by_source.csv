@@ -1,0 +1,13 @@
+﻿Source ID,Alt. ID,Folder,Scatter E-Field File (bleed),Incident E-Field File (bleed),Scatter E-Field File (base),Incident E-Field File (base)
+2,2,Homogeneous,pt2_0_9GHz_bleed_scatter.csv,pt2_0_9GHz_bleed_field.csv,pt2_0_9GHz.csv,pt2_0_9GHz_field.csv
+3,3,Homogeneous,pt3_0_9GHz_bleed_scatter.csv,pt3_0_9GHz_bleed_field.csv,pt3_0_9GHz_scatter.csv,pt3_0_9GHz_field.csv
+4,4,Homogeneous,pt4_0_9GHz_bleed_scatter.csv,pt4_0_9GHz_bleed_field.csv,pt4_0_9GHz_scatter.csv,pt4_0_9GHz_field.csv
+5,5,Homogeneous,pt5_0_9GHz_bleed_scatter.csv,pt5_0_9GHz_bleed_field.csv,pt5_0_9GHz_scatter.csv,pt5_0_9GHz_field.csv
+6,6,Homogeneous,pt6_0_9GHz_bleed_scatter.csv,pt6_0_9GHz_bleed_field.csv,pt6_0_9GHz_scatter.csv,pt6_0_9GHz_field.csv
+8,8,Homogeneous,pt8_0_9GHz_bleed_scatter.csv,pt8_0_9GHz_bleed_field.csv,pt8_0_9GHz_scatter.csv,pt8_0_9GHz_field.csv
+10,9,Homogeneous,pt10_0_9GHz_bleed_scatter.csv,pt10_0_9GHz_bleed_field.csv,pt9_0_9GHz_scatter.csv,pt9_0_9GHz_field.csv
+15,11,Homogeneous,pt15_0_9GHz_bleed_scatter.csv,pt15_0_9GHz_bleed_field.csv,pt11_0_9GHz_scatter.csv,pt11_0_9GHz_field.csv
+16,12,Homogeneous,pt16_0_9GHz_bleed_scatter.csv,pt16_0_9GHz_bleed_field.csv,pt12_0_9GHz_scatter.csv,pt12_0_9GHz_field.csv
+17,13,Homogeneous,pt17_0_9GHz_bleed_scatter.csv,pt17_0_9GHz_bleed_field.csv,pt13_0_9GHz_scatter.csv,pt13_0_9GHz_field.csv
+18,14,Homogeneous,pt18_0_9GHz_bleed_scatter.csv,pt18_0_9GHz_bleed_field.csv,pt14_0_9GHz_scatter.csv,pt14_0_9GHz_field.csv
+19,15,Homogeneous,pt19_0_9GHz_bleed_scatter.csv,pt19_0_9GHz_bleed_field.csv,pt15_0_9GHz_scatter.csv,pt15_0_9GHz_field.csv
