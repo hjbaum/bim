@@ -8,9 +8,10 @@ import scipy.io
 from mpl_toolkits import mplot3d
 import os
 
+# Define the frequency used in the COMSOL siimulation
 freq = 0.9e9
 
-def solve_baseline(incident_field_fname, scatter_field_fname, tx_id):
+def solve_baseline(incident_field_fname, scatter_field_fname):
     incident_field_data = []
     scatter_field_data = []
 
@@ -57,11 +58,11 @@ def solve_baseline(incident_field_fname, scatter_field_fname, tx_id):
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
     parameters = bim.Params(freq,N,M) 
-    solution = bim.run(parameters, incident_field_data, scatter_field_data, [], tx_id)
+    solution = bim.run(parameters, incident_field_data, scatter_field_data, [])
     
     return solution
 
-def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution, tx_id):
+def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution):
     incident_field_data = []
     scatter_field_data = []
 
@@ -108,11 +109,10 @@ def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
     parameters = bim.Params(freq,N,M) 
-    solution = bim.run(parameters, incident_field_data, scatter_field_data, baseline_solution, tx_id)
+    solution = bim.run(parameters, incident_field_data, scatter_field_data, baseline_solution)
 
     return solution
 
-# Define main function
 def main():
     dirname = os.path.dirname(__file__)
     files_by_source_csv = os.path.join(dirname, 'filenames_by_source.csv')
@@ -153,11 +153,11 @@ def main():
                 incident_field_fname = os.path.join(dirname, '..', 'COMSOL', row[2], row[6])
 
                 # Solve base field
-                baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname, int(source_id))
+                baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname)
 
 
                 # Solve field of interest
-                solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution, int(source_id))
+                solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution)
 
                 X = bim.get_x_vector()
                 Y = bim.get_y_vector()
@@ -171,8 +171,6 @@ def main():
 
                 # Plot absolute value; currently dropping imag component
                 ax.scatter(X, Y, abs(solution), label=legend, color=colors[row_count-2], lw=0.5)    
-                
-                break
                 
         csv_file.close()
     

@@ -1,8 +1,6 @@
 # Other
 **/Solutions/**
 *.xlsx
-**/COMSOL/**
-*.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

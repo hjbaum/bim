@@ -163,7 +163,7 @@ def initial_guess(): # "Lobel et al. (1996) - multifrequency" - Batista
     return epsilon
 
 # params is a struct containing all required parameters (eg. I, J, Epsilon, etc)
-def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), base_solution: np.array(float), tx_id):
+def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), base_solution: np.array(float)):
     # Assign globals
     global K
     global Es
