@@ -32,7 +32,7 @@ The outline of the approach is as follows:
 
 (1) Solve the linearized inverse problem for the first order distribution function by using the Born approximation. 
 
-(2) Solve the scattering problem for the field in the object and at the observation points with the last reconstructed distribution function. 
+(2) Solve the scattering problem for the field in the object and at the observation points with the last reconstructed distribution function. 
 
 (3) Substitute the field in the object obtained in step (2) into the integrand in the integral equation and solve the inverse problem to recover the next order distribution function. 
 
