@@ -205,7 +205,7 @@ def run(params: Params, inc_data: np.array(Node), scat_data: np.array(Node), bas
 
     # Define max number of iterations to compute. Otherwise,
     #   the program will run until the error is less than 5%
-    MAX_ITER = 10
+    MAX_ITER = 5
 
     # Define arbitrary regularization param
     gamma = 0.05 #E-10 # Recommendation between 1e-10 and 1e-15

@@ -53,7 +53,6 @@ def solve_baseline(incident_field_fname, scatter_field_fname):
                     count = count + 1 
         csv_file.close()
         M = count
-        print("M = ", str(M))
 
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
@@ -104,7 +103,6 @@ def solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_
                     count = count + 1         
         csv_file.close()
         M = count
-        print("M = ", str(M))
 
     #for multiple sources/freqs, iterate here? Could grab data from different pages in excel
     # ^No. Each independent measurement improves accuracy of the solution
@@ -121,7 +119,7 @@ def main():
 
     fig = plt.figure("Solution")
     ax = plt.axes(projection = '3d')
-    colors = ['blue', 'green']
+    colors = ['blue', 'green', 'red', 'yellow', 'cyan']
 
     # Parse the csv for the source files containing field data
     with open(files_by_source_csv,'r') as csv_file:
@@ -152,9 +150,10 @@ def main():
                 scatter_field_fname = os.path.join(dirname, '..', 'COMSOL', row[2], row[5])
                 incident_field_fname = os.path.join(dirname, '..', 'COMSOL', row[2], row[6])
 
+                print("\nSource: ", str(source_id))
+
                 # Solve base field
                 baseline_solution = solve_baseline(incident_field_fname, scatter_field_fname)
-
 
                 # Solve field of interest
                 solution = solve_bleed(bleed_incident_field_fname, bleed_scatter_field_fname, baseline_solution)
